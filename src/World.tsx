@@ -11,18 +11,45 @@ var Engine = Matter.Engine,
 const UnitWidth = 30;
 const UnitHeight = 20;
 
+const StackMargin = 10;
+
+function attachTwoUnits(unit1, unit2, world) {
+    const options = {
+        bodyA: unit1,
+        bodyB: unit2,
+        pointA: {x: -UnitWidth / 2, y: UnitHeight / 2 - 1},
+        pointB: {x: -UnitWidth / 2, y: -UnitHeight / 2 + 1},
+        style: "spring",
+        length: 2 + StackMargin,
+        stiffness: 0.2,
+        damping: .6
+    }
+    const constraint1 = Matter.Constraint.create(options);
+    const options2 = {...options};
+    options2.pointA = {x: UnitWidth / 2, y: (+UnitHeight / 2 + 1)};
+    options2.pointB = {x: UnitWidth / 2, y: -UnitHeight / 2 + 1};
+    const constraint2 = Matter.Constraint.create(options2);
+    Matter.World.add(world, [constraint1, constraint2]);
+}
 
 const unit = (x: number, y: number, w: number, h: number, world: any) => {
     let bod = null;
     console.log("Created an attracted")
     bod = Bodies.rectangle(x, y, w, h, {
         density: 0.4,
-        friction: 0.01,
-        frictionAir: 0.0001,
-        restitution: 0.7,
+        friction: 0.1,
+        frictionAir: 0.01,
+        restitution: 0.4,
     });
     Matter.World.add(world, bod);
     return bod;
+}
+
+function putBodyFlat(the_bod: any, delay: number) {
+    setTimeout(() => {
+        Matter.Body.setAngularVelocity(the_bod, 0);
+        Matter.Body.setAngle(the_bod, 0);
+    }, delay);
 }
 
 const World = () => {
@@ -120,7 +147,11 @@ const World = () => {
     useEffect(() => {
         if (engine_ref.current) {
             for (let i = 0; i < secondNumber; ++i) {
-                myBodies2_ref.current.push(unit(canvasRef.current.clientWidth - 220 + Math.random() * 200, 40 + Math.random() * 40, UnitWidth, UnitHeight, engine_ref.current.world));
+                myBodies2_ref.current.push(unit(canvasRef.current.clientWidth - 220 + Math.random() * 200,
+                    40 + Math.random() * 40,
+                    UnitWidth,
+                    UnitHeight,
+                    engine_ref.current.world));
             }
         }
         return () => {
@@ -131,52 +162,38 @@ const World = () => {
         }
     }, [myBodies_ref, engine_ref, secondNumber])
 
-    function attachTwoUnits(unit1, unit2, word) {
-        const options = {
-            bodyA: unit1,
-            bodyB: unit2,
-            pointA: {x: -20, y: 20},
-            pointB: {x: -20, y: 20},
-            style: "spring",
-            length: 2,
-            stiffness: 0.6
-        }
-        const constraint1 = Matter.Constraint.create(options);
-        const options2 = {...options};
-        options2.pointA = {x: -20, y: -20};
-        options2.pointB = {x: 20, y: 20};
-        const constraint2 = Matter.Constraint.create(options2);
-        Matter.World.add(engine_ref.current.world, [constraint1, constraint2]);
-    }
 
     useEffect(() => {
 
         setTimeout(() => {
             const groupCount = Math.floor(firstNumber / 10);
             for (let groupIndex = 0; groupIndex < groupCount; ++groupIndex) {
-                for (let itemIndex = 1; itemIndex < 10; ++itemIndex) {
-                    attachTwoUnits(myBodies_ref.current[groupIndex * 10 + itemIndex - 1],
-                        myBodies_ref.current[groupIndex * 10 + itemIndex],
-                        engine_ref.current.world)
+                for (let itemIndex = 0; itemIndex < 10; ++itemIndex) {
+                    const the_bod = myBodies_ref.current[groupIndex * 10 + itemIndex];
+                    if (itemIndex === 0) {
+                        Matter.Body.setPosition(the_bod, {
+                            x: (groupIndex + 1) * 2 * UnitWidth,
+                            y: canvasRef.current.clientHeight -100 - (UnitHeight+StackMargin) * 10
+                        })
+                        Matter.Body.setStatic(the_bod, true);
+                    } else {
+                        const the_prev_bod = myBodies_ref.current[groupIndex * 10 + itemIndex - 1];
+                        attachTwoUnits(the_prev_bod, the_bod,
+                            engine_ref.current.world)
+                        if (itemIndex === 9) {
+                            Matter.Body.setPosition(the_bod, {
+                                x: (groupIndex + 1) * 2 * UnitWidth,
+                                y: canvasRef.current.clientHeight - 100
+                            })
+                            Matter.Body.setStatic(the_bod, true);
+                        }
+                    }
+                    Matter.Body.set(the_bod, {collisionFilter: {group: 1 + itemIndex}})
+                    putBodyFlat(the_bod, 1000)
+                    putBodyFlat(the_bod, 2000)
+                    //Matter.Body.update(the_bod)
                 }
             }
-            // console.log(engine_ref.current.world.bodies, myBodies_ref.current);
-            // Matter.Body.setStatic(myBodies_ref.current[0], true);
-            // const options = {
-            //     bodyA: myBodies_ref.current[0],
-            //     bodyB: myBodies_ref.current[1],
-            //     pointA: {x: -20, y: 20},
-            //     pointB: {x: -20, y: 20},
-            //     style: "spring",
-            //     length: 2,
-            //     stiffness: 0.6
-            // }
-            // const constraint1 = Matter.Constraint.create(options);
-            // const options2 = {...options};
-            // options2.pointA = {x: -20, y: -20};
-            // options2.pointB = {x: 20, y: 20};
-            // const constraint2 = Matter.Constraint.create(options2);
-            // Matter.World.add(engine_ref.current.world, [constraint1, constraint2]);
         }, 4000)
     })
     ;
